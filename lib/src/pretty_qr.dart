@@ -28,6 +28,8 @@ class PrettyQr extends StatefulWidget {
 
   final ImageProvider? image;
 
+  final ImageProvider? placeHolder;
+
   PrettyQr(
       {Key? key,
       this.size = 100,
@@ -36,7 +38,8 @@ class PrettyQr extends StatefulWidget {
       this.errorCorrectLevel = QrErrorCorrectLevel.M,
       this.roundEdges = false,
       this.typeNumber,
-      this.image})
+      this.image,
+      this.placeHolder})
       : super(key: key);
 
   @override
@@ -44,10 +47,10 @@ class PrettyQr extends StatefulWidget {
 }
 
 class _PrettyQrState extends State<PrettyQr> {
-  Future<ui.Image> _loadImage(BuildContext buildContext) async {
+  Future<ui.Image> _loadImage(BuildContext buildContext, ImageProvider imageProvider) async {
     final completer = Completer<ui.Image>();
 
-    final stream = widget.image!.resolve(ImageConfiguration(
+    final stream = imageProvider.resolve(ImageConfiguration(
       devicePixelRatio: MediaQuery.of(buildContext).devicePixelRatio,
     ));
 
@@ -62,35 +65,40 @@ class _PrettyQrState extends State<PrettyQr> {
   @override
   Widget build(BuildContext context) {
     return widget.image == null
-        ? CustomPaint(
-            size: Size(widget.size, widget.size),
-            painter: PrettyQrCodePainter(
-                data: widget.data,
-                errorCorrectLevel: widget.errorCorrectLevel,
-                elementColor: widget.elementColor,
-                roundEdges: widget.roundEdges,
-                typeNumber: widget.typeNumber),
-          )
+        ? getImagePainter(null)
         : FutureBuilder(
-            future: _loadImage(context),
+            future: _loadImage(context, widget.image!),
             builder: (BuildContext context, AsyncSnapshot snapshot) {
               if (snapshot.hasData) {
-                return Container(
-                  child: CustomPaint(
-                    size: Size(widget.size, widget.size),
-                    painter: PrettyQrCodePainter(
-                        image: snapshot.data,
-                        data: widget.data,
-                        errorCorrectLevel: widget.errorCorrectLevel,
-                        elementColor: widget.elementColor,
-                        roundEdges: widget.roundEdges,
-                        typeNumber: widget.typeNumber),
-                  ),
-                );
+                return getImagePainter(snapshot.data);
               } else {
-                return Container();
+                if (widget.placeHolder != null) {
+                  return FutureBuilder(
+                      future: _loadImage(context, widget.placeHolder!),
+                      builder: (BuildContext context, AsyncSnapshot snapshot) {
+                        if (snapshot.hasData) {
+                          return getImagePainter(snapshot.data);
+                        }
+                        return Container();
+                      });
+                }else{
+                  return getImagePainter(null);
+                }
               }
             },
           );
+  }
+  Widget getImagePainter(dynamic imageData) {
+    return CustomPaint(
+      key: UniqueKey(),
+      size: Size(widget.size, widget.size),
+      painter: PrettyQrCodePainter(
+          image: imageData,
+          data: widget.data,
+          errorCorrectLevel: widget.errorCorrectLevel,
+          elementColor: widget.elementColor,
+          roundEdges: widget.roundEdges,
+          typeNumber: widget.typeNumber),
+    );
   }
 }
